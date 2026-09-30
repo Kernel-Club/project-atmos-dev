@@ -1,0 +1,316 @@
+import { useState } from 'react'
+import './App.css'
+import { getWeather } from './services/weatherApi'
+
+function App() {
+  const [city, setCity] = useState('')
+  const [weather, setWeather] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function handleSearch(cityName = city) {
+    const searchCity = cityName.trim()
+
+    if (!searchCity) {
+      return
+    }
+
+    setLoading(true)
+    setError('')
+
+    try {
+      const data = await getWeather(searchCity)
+
+      setWeather(data)
+      setCity(searchCity)
+    } catch (err) {
+      setWeather(null)
+      setError(err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleSubmit(event) {
+    event.preventDefault()
+    handleSearch()
+  }
+
+  function handleQuickCity(cityName) {
+    setCity(cityName)
+    handleSearch(cityName)
+  }
+
+  function getWeatherCondition(description) {
+    const text = description.toLowerCase()
+
+    if (
+      text.includes('rain') ||
+      text.includes('drizzle') ||
+      text.includes('shower')
+    ) {
+      return 'condition-rain'
+    }
+
+    if (
+      text.includes('cloud') ||
+      text.includes('overcast')
+    ) {
+      return 'condition-cloudy'
+    }
+
+    return 'condition-clear'
+  }
+
+  return (
+    <div className="app">
+      <div className="app-shell">
+
+        <header className="header">
+          <div className="brand">
+            <div className="brand-logo" aria-hidden="true">
+              <svg
+                viewBox="0 0 64 64"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M12 30C12 19.507 20.507 11 31 11C42.046 11 51 19.954 51 31"
+                  stroke="currentColor"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                />
+
+                <path
+                  d="M13.5 36.5C13.5 31.806 17.306 28 22 28C23.335 28 24.602 28.307 25.73 28.853C27.363 24.84 31.31 22 35.92 22C42.03 22 47 26.97 47 33.08C47 33.42 46.985 33.756 46.955 34.087C48.058 33.39 49.36 33 50.75 33C54.755 33 58 36.245 58 40.25C58 44.255 54.755 47.5 50.75 47.5H21C15.201 47.5 10.5 42.799 10.5 37C10.5 36.832 10.504 36.665 10.512 36.5H13.5Z"
+                  fill="currentColor"
+                />
+              </svg>
+            </div>
+
+            <div className="brand-name">
+              <span>Project</span>
+              <strong>Atmos</strong>
+            </div>
+          </div>
+
+          <nav className="nav">
+            <button className="nav-item active">
+              Weather
+            </button>
+
+            <button className="nav-item">
+              History
+            </button>
+          </nav>
+        </header>
+
+        <main className="dashboard">
+
+          <section className="hero">
+            <h1>
+              Real-time weather
+              <br />
+              for <span>everywhere.</span>
+            </h1>
+
+            <form
+              className="search"
+              onSubmit={handleSubmit}
+            >
+              <input
+                type="text"
+                value={city}
+                onChange={(event) => setCity(event.target.value)}
+                placeholder="Search a city..."
+                disabled={loading}
+              />
+
+              <button
+                className="search-button"
+                type="submit"
+                aria-label="Search weather"
+                disabled={loading}
+              >
+                →
+              </button>
+            </form>
+
+            <div className="quick-cities">
+              <span>Try:</span>
+
+              <button
+                type="button"
+                onClick={() => handleQuickCity('Seoul')}
+                disabled={loading}
+              >
+                Seoul
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickCity('New York')}
+                disabled={loading}
+              >
+                New York
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickCity('Tokyo')}
+                disabled={loading}
+              >
+                Tokyo
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickCity('London')}
+                disabled={loading}
+              >
+                London
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleQuickCity('Dubai')}
+                disabled={loading}
+              >
+                Dubai
+              </button>
+            </div>
+          </section>
+
+          <section className="weather-section">
+            <div className="weather-card">
+
+              {loading && (
+                <div className="empty-weather">
+                  <div className="empty-weather-icon">
+                    <svg
+                      viewBox="0 0 64 64"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M13 38C13 32.477 17.477 28 23 28C24.581 28 26.073 28.367 27.376 29.017C29.194 24.845 33.323 22 38 22C44.627 22 50 27.373 50 34C50 34.34 49.986 34.677 49.958 35.009C51.11 34.371 52.436 34 53.85 34C58.351 34 62 37.649 62 42.15C62 46.651 58.351 50.3 53.85 50.3H21C15.477 50.3 11 45.823 11 40.3C11 39.49 11.096 38.702 11.277 37.947"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+
+                  <h2>Loading weather...</h2>
+                </div>
+              )}
+
+              {!loading && error && (
+                <div className="empty-weather">
+                  <div className="empty-weather-icon">
+                    !
+                  </div>
+
+                  <h2>Unable to load weather</h2>
+
+                  <p>{error}</p>
+                </div>
+              )}
+
+              {!loading && !error && !weather && (
+                <div className="empty-weather">
+                  <div className="empty-weather-icon">
+                    <svg
+                      viewBox="0 0 64 64"
+                      fill="none"
+                      xmlns="http://www.w3.org/2000/svg"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M13 38C13 32.477 17.477 28 23 28C24.581 28 26.073 28.367 27.376 29.017C29.194 24.845 33.323 22 38 22C44.627 22 50 27.373 50 34C50 34.34 49.986 34.677 49.958 35.009C51.11 34.371 52.436 34 53.85 34C58.351 34 62 37.649 62 42.15C62 46.651 58.351 50.3 53.85 50.3H21C15.477 50.3 11 45.823 11 40.3C11 39.49 11.096 38.702 11.277 37.947"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </div>
+
+                  <h2>
+                    Select a city to display weather
+                  </h2>
+
+                  <p>
+                    Search for a city above to view current conditions.
+                  </p>
+                </div>
+              )}
+
+              {!loading && !error && weather && (
+                <div className="weather-content">
+
+                  <div
+                    className={`weather-main ${getWeatherCondition(weather.description)}`}
+                  >
+
+                    <div className="weather-heading">
+                      <p className="weather-label">
+                        CURRENT CONDITIONS
+                      </p>
+
+                      <h2>
+                        {weather.city}
+                      </h2>
+                    </div>
+
+                    <div className="temperature">
+                      <span>
+                        {weather.temperature}
+                      </span>
+
+                      <sup>°</sup>
+                    </div>
+
+                   
+
+                  </div>
+
+                  <div className="weather-details">
+
+                    <div className="weather-detail">
+                      <span>
+                        Humidity
+                      </span>
+
+                      <strong>
+                        {weather.humidity}%
+                      </strong>
+                    </div>
+
+                    <div className="weather-detail">
+                      <span>
+                        Condition
+                      </span>
+
+                      <strong>
+                        {weather.description}
+                      </strong>
+                    </div>
+
+                  </div>
+
+                </div>
+              )}
+
+            </div>
+          </section>
+
+        </main>
+      </div>
+    </div>
+  )
+}
+
+export default App
