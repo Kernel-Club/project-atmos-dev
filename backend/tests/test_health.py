@@ -1,3 +1,7 @@
+import os
+
+os.environ["REDIS_URL"] = "redis://localhost:6379"
+
 from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
@@ -16,10 +20,24 @@ def test_health():
 
 
 @patch(
+    "app.services.weather.save_weather_history",
+    new_callable=AsyncMock,
+)
+@patch(
+    "app.services.weather.redis_client",
+)
+@patch(
     "app.services.weather.get_current_weather",
     new_callable=AsyncMock,
 )
-def test_weather_success(mock_get_weather):
+def test_weather_success(
+    mock_get_weather,
+    mock_redis,
+    mock_save_history,
+):
+    mock_redis.get = AsyncMock(return_value=None)
+    mock_redis.set = AsyncMock()
+
     mock_get_weather.return_value = {
         "name": "Seoul",
         "main": {
@@ -45,10 +63,22 @@ def test_weather_success(mock_get_weather):
 
 
 @patch(
+    "app.services.weather.save_weather_history",
+    new_callable=AsyncMock,
+)
+@patch(
+    "app.services.weather.redis_client",
+)
+@patch(
     "app.services.weather.get_current_weather",
     new_callable=AsyncMock,
 )
-def test_weather_city_not_found(mock_get_weather):
+def test_weather_city_not_found(
+    mock_get_weather,
+    mock_redis,
+    mock_save_history,
+):
+    mock_redis.get = AsyncMock(return_value=None)
     mock_get_weather.side_effect = ValueError("City not found")
 
     response = client.get("/weather/notfound")

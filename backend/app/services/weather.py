@@ -13,22 +13,22 @@ async def get_weather(city: str) -> WeatherResponse:
     cached_weather = await redis_client.get(cache_key)
 
     if cached_weather:
-        return WeatherResponse.model_validate_json(cached_weather)
+        weather = WeatherResponse.model_validate_json(cached_weather)
+    else:
+        data = await get_current_weather(city)
 
-    data = await get_current_weather(city)
+        weather = WeatherResponse(
+            city=data["name"],
+            temperature=round(data["main"]["temp"]),
+            description=data["weather"][0]["description"],
+            humidity=data["main"]["humidity"],
+        )
 
-    weather = WeatherResponse(
-        city=data["name"],
-        temperature=round(data["main"]["temp"]),
-        description=data["weather"][0]["description"],
-        humidity=data["main"]["humidity"],
-    )
-
-    await redis_client.set(
-        cache_key,
-        weather.model_dump_json(),
-        ex=600,
-    )
+        await redis_client.set(
+            cache_key,
+            weather.model_dump_json(),
+            ex=600,
+        )
 
     await save_weather_history(
         WeatherHistory(
