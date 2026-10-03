@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import OPENWEATHER_API_KEY
 from app.services.weather import get_weather
+from app.services.history import get_weather_history, clear_weather_history
 
 app = FastAPI(
     title="Project Atmos API",
@@ -35,3 +36,12 @@ async def weather(city: str):
             status_code=404,
             detail=str(exc),
         )
+
+@app.get("/history")
+async def history():
+    return await get_weather_history()
+
+@app.delete("/history")
+async def clear_history():
+    await clear_weather_history()
+    return {"status": "ok"}

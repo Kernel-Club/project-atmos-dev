@@ -1,12 +1,21 @@
 import { useState } from 'react'
 import './App.css'
-import { getWeather } from './services/weatherApi'
+import {
+  getWeather,
+  getHistory,
+  clearHistory,
+} from './services/weatherApi'
 
 function App() {
   const [city, setCity] = useState('')
   const [weather, setWeather] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [history, setHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [historyError, setHistoryError] = useState('')
 
   async function handleSearch(cityName = city) {
     const searchCity = cityName.trim()
@@ -31,9 +40,74 @@ function App() {
     }
   }
 
+  async function handleHistoryOpen() {
+    setHistoryOpen(true)
+    setHistoryLoading(true)
+    setHistoryError('')
+
+    try {
+      const data = await getHistory()
+      setHistory(data)
+    } catch (err) {
+      setHistoryError(err.message)
+    } finally {
+      setHistoryLoading(false)
+    }
+  }
+
+  function handleHistoryClose() {
+    setHistoryOpen(false)
+  }
+
+  async function handleClearHistory() {
+    try {
+      await clearHistory()
+      setHistory([])
+    } catch (err) {
+      setHistoryError(err.message)
+    }
+  }
+  
   function handleSubmit(event) {
     event.preventDefault()
     handleSearch()
+  }
+
+  function formatHistoryTimestamp(timestamp) {
+    const normalizedTimestamp =
+      timestamp.endsWith('Z') || /[+-]\d{2}:\d{2}$/.test(timestamp)
+        ? timestamp
+        : `${timestamp}Z`
+
+    const date = new Date(normalizedTimestamp)
+
+    const day = new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+    }).format(date)
+
+    const month = new Intl.DateTimeFormat('en-GB', {
+      month: 'short',
+    }).format(date)
+
+    const weekday = new Intl.DateTimeFormat('en-GB', {
+      weekday: 'long',
+    }).format(date)
+
+    const year = new Intl.DateTimeFormat('en-GB', {
+      year: 'numeric',
+    }).format(date)
+
+    const time = new Intl.DateTimeFormat('en-GB', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).format(date)
+
+    return {
+      date: `${day} ${month} · ${weekday}`,
+      year,
+      time,
+    }
   }
 
   function handleQuickCity(cityName) {
@@ -93,17 +167,104 @@ function App() {
               <strong>Atmos</strong>
             </div>
           </div>
-
           <nav className="nav">
-            <button className="nav-item active">
+            <button
+              className={`nav-item ${!historyOpen ? 'active' : ''}`}
+              onClick={handleHistoryClose}
+            >
               Weather
             </button>
 
-            <button className="nav-item">
+            <button
+              className={`nav-item ${historyOpen ? 'active' : ''}`}
+              onClick={handleHistoryOpen}
+            >
               History
             </button>
           </nav>
         </header>
+
+                {historyOpen && (
+          <aside className="history-drawer">
+            <div className="history-header">
+              <button
+                className="history-back"
+                onClick={handleHistoryClose}
+                aria-label="Back to weather"
+              >
+                ←
+              </button>
+
+              <h2>WEATHER HISTORY</h2>
+
+              <button
+                className="history-clear"
+                onClick={handleClearHistory}
+              >
+                CLEAR
+              </button>
+            </div>
+
+            <div className="history-content">
+              {historyLoading && (
+                <div className="history-state">
+                  Loading history...
+                </div>
+              )}
+
+              {historyError && (
+                <div className="history-state history-error">
+                  {historyError}
+                </div>
+              )}
+
+              {!historyLoading && !historyError && history.length === 0 && (
+                <div className="history-state">
+                  <strong>No weather history</strong>
+                  <span>
+                    Search for a city to start building history.
+                  </span>
+                </div>
+              )}
+
+              {!historyLoading && !historyError && history.length > 0 && (
+                <div className="history-list">
+                  {history.map((item, index) => (
+                    <div
+                      className="history-card"
+                      key={`${item.city}-${item.timestamp}-${index}`}
+                    >
+                      <div className="history-card-top">
+                        <strong>{item.city}</strong>
+                        <span>{item.temperature}°</span>
+                      </div>
+
+                      <div className="history-description">
+                        {item.description}
+                      </div>
+
+                      <div className="history-card-bottom">
+                        <span>{item.humidity}% humidity</span>
+
+                        <span>
+                          {formatHistoryTimestamp(item.timestamp).date}
+                        </span>
+
+                        <span>
+                          {formatHistoryTimestamp(item.timestamp).year}
+                        </span>
+
+                        <span>
+                          {formatHistoryTimestamp(item.timestamp).time}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </aside>
+        )}
 
         <main className="dashboard">
 

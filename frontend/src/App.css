@@ -1099,3 +1099,223 @@
     transition: none;
   }
 }
+
+/* =========================
+   HISTORY DRAWER
+   ========================= */
+
+.app-shell {
+  position: relative;
+}
+
+.history-drawer {
+  position: absolute;
+  top: 83px;
+  right: 0;
+  bottom: 0;
+  z-index: 20;
+
+  width: 38%;
+  min-width: 380px;
+  max-width: 540px;
+
+  display: flex;
+  flex-direction: column;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(4, 18, 32, 0.98) 0%,
+      rgba(2, 12, 23, 0.99) 100%
+    );
+
+  border-left: 1px solid rgba(74, 166, 255, 0.22);
+  box-shadow: -18px 0 45px rgba(0, 0, 0, 0.35);
+
+  animation: historyDrawerIn 0.35s ease-out both;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+
+  min-height: 70px;
+  padding: 0 22px;
+
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.history-header h2 {
+  margin: 0;
+
+  flex: 1;
+
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #f4f8ff;
+}
+
+.history-back,
+.history-clear {
+  border: 0;
+  background: transparent;
+  color: #8ea4ba;
+  cursor: pointer;
+
+  transition:
+    color 0.2s ease,
+    transform 0.2s ease,
+    text-shadow 0.2s ease;
+}
+
+.history-back {
+  width: 34px;
+  height: 34px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 0;
+
+  font-size: 22px;
+}
+
+.history-back:hover {
+  color: #ffffff;
+  transform: translateX(-2px);
+}
+
+.history-clear {
+  padding: 8px 0;
+
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: #3da5ff;
+}
+
+.history-clear:hover {
+  color: #70bdff;
+  text-shadow: 0 0 12px rgba(61, 165, 255, 0.55);
+}
+
+.history-content {
+  flex: 1;
+
+  overflow-y: auto;
+
+  padding: 20px;
+}
+
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-card {
+  padding: 16px 17px;
+
+  border: 1px solid rgba(74, 166, 255, 0.12);
+  border-radius: 12px;
+
+  background: rgba(8, 28, 46, 0.55);
+
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease,
+    transform 0.2s ease;
+}
+
+.history-card:hover {
+  border-color: rgba(74, 166, 255, 0.28);
+  background: rgba(10, 34, 55, 0.72);
+  transform: translateX(-2px);
+}
+
+.history-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.history-card-top strong {
+  font-size: 17px;
+  font-weight: 700;
+  color: #f4f8ff;
+}
+
+.history-card-top span {
+  font-size: 24px;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.history-description {
+  margin-top: 5px;
+
+  font-size: 13px;
+  text-transform: capitalize;
+  color: #91a8bd;
+}
+
+.history-card-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  margin-top: 14px;
+  padding-top: 11px;
+
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+
+  font-size: 11px;
+  color: #6f879d;
+}
+
+.history-state {
+  min-height: 180px;
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  gap: 8px;
+
+  text-align: center;
+  color: #71889e;
+}
+
+.history-state strong {
+  color: #dce8f5;
+  font-size: 15px;
+}
+
+.history-state span {
+  max-width: 260px;
+
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.history-error {
+  color: #ff8f8f;
+}
+
+@keyframes historyDrawerIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0.7;
+  }
+
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
