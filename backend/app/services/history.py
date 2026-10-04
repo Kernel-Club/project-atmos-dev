@@ -1,7 +1,6 @@
 from app.db.mongodb import db
 from app.models.history import WeatherHistory
 
-
 history_collection = db["weather_history"]
 
 

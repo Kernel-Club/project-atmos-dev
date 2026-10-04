@@ -5,3 +5,4 @@ httpx
 python-dotenv
 pymongo
 redis
+ruff
