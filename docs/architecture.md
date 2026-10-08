@@ -45,7 +45,7 @@ flowchart LR
 | Database | MongoDB |
 | Cache | Redis |
 | Containers | Docker |
-| Local Environment | Docker Compose |
+| Observability | Prometheus + Grafana + Loki |
 | Kubernetes | Amazon EKS |
 | Kubernetes Configuration | Kustomize |
 | Infrastructure | Terraform |
@@ -53,7 +53,6 @@ flowchart LR
 | Container Registry | Docker Hub |
 | External Access | AWS Application Load Balancer + Gateway API |
 | Secrets | AWS Secrets Manager |
-| Local Observability | Prometheus + Grafana + Loki |
 
 ---
 
@@ -116,6 +115,8 @@ flowchart TB
                     PR[("Redis")]
                     PM[("MongoDB")]
                 end
+
+                Egress["Kubernetes<br/>Egress Networking"]
             end
         end
 
@@ -136,11 +137,12 @@ flowchart TB
 
     DB --> DR
     DB --> DM
-    DB --> Weather
-
+    DB --> Egress
     PB --> PR
     PB --> PM
-    PB --> Weather
+    PB --> Egress
+
+    Egress -->|Outbound HTTPS| Weather
 
     DM --> EBS
     PM --> EBS
