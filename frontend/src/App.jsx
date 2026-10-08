@@ -341,73 +341,77 @@ function App() {
               </button>
             </div>
           </section>
+<section className="weather-section">
+  <div className="weather-card">
 
-          <section className="weather-section">
-            <div className="weather-card">
+    {loading && (
+      <div className="empty-weather">
+        <div className="empty-weather-icon">
+          <svg
+            viewBox="0 0 64 64"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              transform="translate(8 8) scale(2)"
+              d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"
+              fill="currentColor"
+              fillOpacity="0.12"
+              stroke="currentColor"
+              strokeWidth="1.25"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
 
-              {loading && (
-                <div className="empty-weather">
-                  <div className="empty-weather-icon">
-                    <svg
-                      viewBox="0 0 64 64"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M13 38C13 32.477 17.477 28 23 28C24.581 28 26.073 28.367 27.376 29.017C29.194 24.845 33.323 22 38 22C44.627 22 50 27.373 50 34C50 34.34 49.986 34.677 49.958 35.009C51.11 34.371 52.436 34 53.85 34C58.351 34 62 37.649 62 42.15C62 46.651 58.351 50.3 53.85 50.3H21C15.477 50.3 11 45.823 11 40.3C11 39.49 11.096 38.702 11.277 37.947"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
+        <h2>Loading weather...</h2>
+      </div>
+    )}
 
-                  <h2>Loading weather...</h2>
-                </div>
-              )}
+    {!loading && error && (
+      <div className="empty-weather">
+        <div className="empty-weather-icon">
+          !
+        </div>
 
-              {!loading && error && (
-                <div className="empty-weather">
-                  <div className="empty-weather-icon">
-                    !
-                  </div>
+        <h2>Unable to load weather</h2>
 
-                  <h2>Unable to load weather</h2>
+        <p>{error}</p>
+      </div>
+    )}
 
-                  <p>{error}</p>
-                </div>
-              )}
+    {!loading && !error && !weather && (
+      <div className="empty-weather">
+        <div className="empty-weather-icon">
+          <svg
+            viewBox="0 0 64 64"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <path
+              transform="translate(8 8) scale(2)"
+              d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96z"
+              fill="currentColor"
+              fillOpacity="0.12"
+              stroke="currentColor"
+              strokeWidth="1.25"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
 
-              {!loading && !error && !weather && (
-                <div className="empty-weather">
-                  <div className="empty-weather-icon">
-                    <svg
-                      viewBox="0 0 64 64"
-                      fill="none"
-                      xmlns="http://www.w3.org/2000/svg"
-                      aria-hidden="true"
-                    >
-                      <path
-                        d="M13 38C13 32.477 17.477 28 23 28C24.581 28 26.073 28.367 27.376 29.017C29.194 24.845 33.323 22 38 22C44.627 22 50 27.373 50 34C50 34.34 49.986 34.677 49.958 35.009C51.11 34.371 52.436 34 53.85 34C58.351 34 62 37.649 62 42.15C62 46.651 58.351 50.3 53.85 50.3H21C15.477 50.3 11 45.823 11 40.3C11 39.49 11.096 38.702 11.277 37.947"
-                        stroke="currentColor"
-                        strokeWidth="2.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
-                  </div>
+        <h2>
+          Select a city to display weather
+        </h2>
 
-                  <h2>
-                    Select a city to display weather
-                  </h2>
+        <p>
+          Search for a city above to view current conditions.
+        </p>
+      </div>
+    )}
 
-                  <p>
-                    Search for a city above to view current conditions.
-                  </p>
-                </div>
-              )}
 
               {!loading && !error && weather && (
                 <div className="weather-content">
