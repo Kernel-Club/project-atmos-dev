@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, UTC
+from datetime import UTC, datetime
 
 from app.clients.openweather import get_current_weather
 from app.db.redis import client as redis_client
