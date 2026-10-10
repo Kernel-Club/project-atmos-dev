@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 
 from app.clients.openweather import get_current_weather
 from app.db.redis import client as redis_client
@@ -36,7 +36,7 @@ async def get_weather(city: str) -> WeatherResponse:
             temperature=weather.temperature,
             description=weather.description,
             humidity=weather.humidity,
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
         )
     )
 
