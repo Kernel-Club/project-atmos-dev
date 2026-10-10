@@ -179,16 +179,16 @@ Docker Image
 Docker Hub
 ```
 
-Development images use immutable Git-based tags:
+Development images use environment-specific tags with a shortened Git commit SHA:
 
 ```text
-<service>:<git-sha>
+<service>:dev-<short-sha>
 ```
 
-Production releases use explicit versions:
+Production releases use an explicit version and a shortened Git commit SHA:
 
 ```text
-<service>:v1.0.0
+<service>:prod-<version>-<short-sha>
 ```
 
 ### CD
@@ -196,16 +196,16 @@ Production releases use explicit versions:
 ```text
 Docker Hub
   ↓
-Automatic DEV deployment
+Automatic DEV deployment (dev-<short-sha>)
   ↓
 Validation
   ↓
 Manual approval
   ↓
-PROD deployment
+PROD deployment (prod-<version>-<short-sha>)
 ```
 
-DEV delivery is fully automated.  
+DEV deployment is fully automated.  
 PROD deployment requires explicit manual approval.
 
 ---

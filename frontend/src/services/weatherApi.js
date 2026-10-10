@@ -1,14 +1,11 @@
-const API_URL = 'http://127.0.0.1:8000'
+const API_URL = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
 
 export async function getWeather(city) {
   const response = await fetch(`${API_URL}/weather/${encodeURIComponent(city)}`)
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-
-    throw new Error(
-      error.detail || 'Failed to fetch weather data'
-    )
+    throw new Error(error.detail || 'Failed to fetch weather data')
   }
 
   return response.json()
@@ -19,10 +16,7 @@ export async function getHistory() {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-
-    throw new Error(
-      error.detail || 'Failed to fetch weather history'
-    )
+    throw new Error(error.detail || 'Failed to fetch weather history')
   }
 
   return response.json()
@@ -35,10 +29,7 @@ export async function clearHistory() {
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({}))
-
-    throw new Error(
-      error.detail || 'Failed to clear weather history'
-    )
+    throw new Error(error.detail || 'Failed to clear weather history')
   }
 
   return response.json()
