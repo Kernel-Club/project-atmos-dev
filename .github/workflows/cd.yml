@@ -1,0 +1,42 @@
+name: CD
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - develop
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-dev:
+    name: Deploy DEV
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    environment: development
+
+    steps:
+      - name: Checkout source commit
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.event.workflow_run.head_repository.full_name }}
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Show deployment target
+        run: |
+          echo "DEV deployment requested for commit ${{ github.event.workflow_run.head_sha }}"
+          echo "Image tag: dev-$(echo '${{ github.event.workflow_run.head_sha }}' | cut -c1-7)"
+
+      - name: Check Kubernetes credentials
+        env:
+          KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
+        run: |
+          if [ -z "$KUBE_CONFIG_DEV" ]; then
+            echo "::error::KUBE_CONFIG_DEV secret is not configured."
+            exit 1
+          fi
+          echo "Kubernetes credentials are configured."
