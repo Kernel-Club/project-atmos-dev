@@ -12,31 +12,92 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
 jobs:
   deploy-dev:
     name: Deploy DEV
-    if: github.event.workflow_run.conclusion == 'success'
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'develop'
     runs-on: ubuntu-latest
     environment: development
 
+    env:
+      AWS_REGION: ap-northeast-2
+      EKS_CLUSTER_NAME: project-atmos-eks
+      SHORT_SHA: ${{ github.event.workflow_run.head_sha }}
+
     steps:
-      - name: Checkout source commit
+      - name: Checkout application source
         uses: actions/checkout@v4
         with:
           repository: ${{ github.event.workflow_run.head_repository.full_name }}
           ref: ${{ github.event.workflow_run.head_sha }}
 
-      - name: Show deployment target
+      - name: Set image tag
+        shell: bash
         run: |
-          echo "DEV deployment requested for commit ${{ github.event.workflow_run.head_sha }}"
-          echo "Image tag: dev-$(echo '${{ github.event.workflow_run.head_sha }}' | cut -c1-7)"
+          echo "IMAGE_TAG=dev-${SHORT_SHA:0:7}" >> "$GITHUB_ENV"
+          echo "Deploying commit: $SHORT_SHA"
 
-      - name: Check Kubernetes credentials
-        env:
-          KUBE_CONFIG_DEV: ${{ secrets.KUBE_CONFIG_DEV }}
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Configure EKS access
         run: |
-          if [ -z "$KUBE_CONFIG_DEV" ]; then
-            echo "::error::KUBE_CONFIG_DEV secret is not configured."
-            exit 1
-          fi
-          echo "Kubernetes credentials are configured."
+          aws eks update-kubeconfig \
+            --region "$AWS_REGION" \
+            --name "$EKS_CLUSTER_NAME"
+
+      - name: Checkout Kubernetes manifests
+        uses: actions/checkout@v4
+        with:
+          repository: Kernel-Club/project-atmos-k8s
+          ref: main
+          path: project-atmos-k8s
+          token: ${{ secrets.K8S_REPO_TOKEN }}
+
+      - name: Validate Kubernetes manifests
+        run: |
+          kubectl kustomize project-atmos-k8s/overlays/dev
+
+      - name: Apply DEV manifests
+        run: |
+          kubectl apply -k project-atmos-k8s/overlays/dev
+
+          kubectl set image deployment/atmos-backend \
+            backend="streetflow13/project-atmos-backend:$IMAGE_TAG" \
+            --namespace dev
+
+          kubectl set image deployment/atmos-frontend \
+            frontend="streetflow13/project-atmos-frontend:$IMAGE_TAG" \
+            --namespace dev
+
+      - name: Verify backend rollout
+        run: |
+          kubectl rollout status deployment/atmos-backend \
+            --namespace dev \
+            --timeout=180s
+
+      - name: Verify frontend rollout
+        run: |
+          kubectl rollout status deployment/atmos-frontend \
+            --namespace dev \
+            --timeout=180s
+
+      - name: Show deployment status
+        if: always()
+        run: |
+          kubectl get deployments -n dev \
+            -o custom-columns='NAME:.metadata.name,READY:.status.readyReplicas,IMAGES:.spec.template.spec.containers[*].image' \
+            || true
