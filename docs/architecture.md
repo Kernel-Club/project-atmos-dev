@@ -49,9 +49,11 @@ flowchart LR
 | Kubernetes | Amazon EKS |
 | Kubernetes Configuration | Kustomize |
 | Infrastructure | Terraform |
+| Terraform State | Amazon S3 |
 | CI | GitHub Actions |
 | Container Registry | Docker Hub |
 | External Access | AWS Application Load Balancer + Gateway API |
+| Outbound Access | AWS NAT Gateway |
 | Secrets | AWS Secrets Manager |
 
 ---
@@ -118,13 +120,17 @@ flowchart TB
 
                 Egress["Kubernetes<br/>Egress Networking"]
             end
+
+            NAT["NAT Gateway"]
         end
 
         EBS["Amazon EBS"]
+        S3["Amazon S3<br/>Terraform State"]
         Secrets["AWS Secrets Manager"]
         CloudWatch["Amazon CloudWatch"]
     end
 
+    Terraform["Terraform"]
     Weather["OpenWeather API"]
 
     User --> ALB
@@ -142,7 +148,8 @@ flowchart TB
     PB --> PM
     PB --> Egress
 
-    Egress -->|Outbound HTTPS| Weather
+    Egress --> NAT
+    NAT -->|Outbound HTTPS| Weather
 
     DM --> EBS
     PM --> EBS
@@ -151,6 +158,7 @@ flowchart TB
     Secrets -.-> PB
 
     EKS -.-> CloudWatch
+    Terraform -.->|State| S3
 ```
 
 The **AWS Application Load Balancer** is the external entry point.
@@ -160,6 +168,10 @@ The **AWS Application Load Balancer** is the external entry point.
 No Nginx Ingress Controller is used.
 
 DEV and PROD run as separate Kubernetes environments within the EKS cluster.
+
+Outbound traffic from the cluster to the OpenWeather API goes through **Kubernetes Egress Networking** and a single **NAT Gateway** shared by DEV and PROD.
+
+**Amazon S3** stores the Terraform remote state.
 
 ---
 
@@ -243,8 +255,10 @@ Real secrets are never stored in Git.
 | Amazon EKS | Kubernetes platform |
 | EC2 | Worker nodes |
 | VPC | Networking |
+| NAT Gateway | Outbound internet access from the cluster |
 | Application Load Balancer | External access |
 | EBS | Persistent MongoDB storage |
+| S3 | Terraform remote state |
 | Secrets Manager | Secrets and credential rotation |
 | CloudWatch | AWS-level monitoring |
 
@@ -256,13 +270,15 @@ Terraform manages the AWS infrastructure.
 
 The architecture uses the minimum practical AWS configuration.
 
-DEV and PROD are logical environments within the EKS architecture, so shared AWS resources are not duplicated unnecessarily.
+DEV and PROD are logical environments within the EKS architecture, so shared AWS resources are not duplicated unnecessarily. One NAT Gateway serves both environments.
 
-| Environment | Initial target |
+| Environment | Initial target (before NAT Gateway) |
 |---|---:|
 | DEV | ~`$60–70/month` |
 | PROD | ~`$60–70/month` |
 | **Total target** | **~`$120–140/month`** |
+
+The NAT Gateway adds a fixed hourly charge plus per-GB data processing charges. The targets above must be re-estimated with the AWS Pricing Calculator for the `ap-northeast-2` region.
 
 The estimate assumes low traffic, small worker nodes, minimal storage, and shared AWS infrastructure where practical.
 

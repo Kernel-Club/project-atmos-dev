@@ -1,6 +1,6 @@
 # Project Atmos
 
-The weather web application built with **React, FastAPI, MongoDB, and Redis**.
+The local version of weather web application built with **React, FastAPI, MongoDB, and Redis**.
 
 The application allows users to search for a city and view current weather information and weather search history.
 
