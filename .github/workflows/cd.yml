@@ -1,6 +1,7 @@
 name: CD
 
 on:
+  # Automatic DEV deployment after a successful CI run on develop
   workflow_run:
     workflows: ["CI"]
     types:
@@ -8,41 +9,54 @@ on:
     branches:
       - develop
 
+  # Manual PROD promotion (requires approval of the "production" environment)
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "App version in the DEV image tag (e.g. v1.0.0)"
+        required: true
+        default: "v1.0.0"
+      sha:
+        description: "First 6 characters of the commit SHA in the DEV image tag"
+        required: true
+
 permissions:
   contents: read
-  id-token: write
 
-concurrency:
-  group: deploy-dev
-  cancel-in-progress: false
+env:
+  # Must match APP_VERSION in ci.yml
+  APP_VERSION: v1.0.0
 
 jobs:
   deploy-dev:
     name: Deploy DEV
     if: >-
+      github.event_name == 'workflow_run' &&
       github.event.workflow_run.conclusion == 'success' &&
       github.event.workflow_run.event == 'push' &&
       github.event.workflow_run.head_branch == 'develop'
     runs-on: ubuntu-latest
     environment: development
 
+    permissions:
+      contents: read
+      id-token: write
+
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+
     env:
       AWS_REGION: ap-northeast-2
       EKS_CLUSTER_NAME: project-atmos-eks
-      SHORT_SHA: ${{ github.event.workflow_run.head_sha }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
 
     steps:
-      - name: Checkout application source
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ github.event.workflow_run.head_repository.full_name }}
-          ref: ${{ github.event.workflow_run.head_sha }}
-
       - name: Set image tag
         shell: bash
         run: |
-          echo "IMAGE_TAG=dev-${SHORT_SHA:0:7}" >> "$GITHUB_ENV"
-          echo "Deploying commit: $SHORT_SHA"
+          echo "IMAGE_TAG=dev-${APP_VERSION}-${HEAD_SHA:0:6}" >> "$GITHUB_ENV"
+          echo "Deploying commit: $HEAD_SHA"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -66,22 +80,22 @@ jobs:
           ref: main
           path: project-atmos-k8s
           token: ${{ secrets.K8S_REPO_TOKEN }}
+          persist-credentials: false
 
-      - name: Validate Kubernetes manifests
+      - name: Set image tags in DEV overlay
+        working-directory: project-atmos-k8s/overlays/dev
         run: |
-          kubectl kustomize project-atmos-k8s/overlays/dev
+          kustomize edit set image \
+            "streetflow13/project-atmos-backend=streetflow13/project-atmos-backend:$IMAGE_TAG" \
+            "streetflow13/project-atmos-frontend=streetflow13/project-atmos-frontend:$IMAGE_TAG"
+
+      - name: Validate rendered manifests
+        run: |
+          kubectl kustomize project-atmos-k8s/overlays/dev | grep "image:"
 
       - name: Apply DEV manifests
         run: |
           kubectl apply -k project-atmos-k8s/overlays/dev
-
-          kubectl set image deployment/atmos-backend \
-            backend="streetflow13/project-atmos-backend:$IMAGE_TAG" \
-            --namespace dev
-
-          kubectl set image deployment/atmos-frontend \
-            frontend="streetflow13/project-atmos-frontend:$IMAGE_TAG" \
-            --namespace dev
 
       - name: Verify backend rollout
         run: |
@@ -95,9 +109,52 @@ jobs:
             --namespace dev \
             --timeout=180s
 
+      - name: Show diagnostics on failure
+        if: failure()
+        run: |
+          kubectl get pods -n dev || true
+          kubectl get events -n dev --sort-by=.lastTimestamp | tail -20 || true
+
       - name: Show deployment status
         if: always()
         run: |
           kubectl get deployments -n dev \
             -o custom-columns='NAME:.metadata.name,READY:.status.readyReplicas,IMAGES:.spec.template.spec.containers[*].image' \
             || true
+
+  promote-prod:
+    # Adds a prod-* tag to the image that already passed DEV. No rebuild.
+    name: Promote image to PROD
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production
+
+    env:
+      VERSION: ${{ inputs.version }}
+      SHA: ${{ inputs.sha }}
+
+    steps:
+      - name: Validate inputs
+        shell: bash
+        run: |
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Bad version: $VERSION"; exit 1; }
+          [[ "$SHA" =~ ^[0-9a-f]{6}$ ]] || { echo "Bad sha (need 6 hex chars): $SHA"; exit 1; }
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Promote backend and frontend images
+        shell: bash
+        run: |
+          for SERVICE in backend frontend; do
+            SRC="streetflow13/project-atmos-${SERVICE}:dev-${VERSION}-${SHA}"
+            DST="streetflow13/project-atmos-${SERVICE}:prod-${VERSION}-${SHA}"
+            echo "Promoting $SRC -> $DST"
+            docker buildx imagetools create --tag "$DST" "$SRC"
+          done
