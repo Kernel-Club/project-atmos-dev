@@ -79,7 +79,6 @@ jobs:
           repository: Kernel-Club/project-atmos-k8s
           ref: main
           path: project-atmos-k8s
-          token: ${{ secrets.K8S_REPO_TOKEN }}
           persist-credentials: false
 
       - name: Set image tags in DEV overlay
