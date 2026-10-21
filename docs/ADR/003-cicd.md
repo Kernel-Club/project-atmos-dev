@@ -4,82 +4,79 @@
 
 Project Atmos requires a CI/CD process that provides a controlled path from application changes to deployed workloads.
 
-The delivery process must:
+The process must:
 
 - validate changes with linting and tests;
 - build and publish versioned Docker images;
-- support automated DEV delivery;
-- release to PROD only the image that was validated in DEV;
-- require explicit approval for PROD releases;
+- hand the published image over to the deployment pipeline;
 - keep application, Kubernetes, and infrastructure responsibilities separated.
 
 Project Atmos uses three repositories:
 
 | Repository | Responsibility |
 |---|---|
-| `project-atmos-dev` | Application, Docker, Compose, CI |
-| `project-atmos-k8s` | Kubernetes and deployment configuration |
+| `project-atmos-dev` | Application, Docker, Compose, CI, image delivery |
+| `project-atmos-k8s` | Kubernetes configuration and deployment (CDeployment) |
 | `project-atmos-iac` | AWS infrastructure with Terraform |
 
 ## Decision
 
-We choose **GitHub Actions** as the CI/CD automation platform and **Docker Hub** as the container registry.
+We choose **GitHub Actions** as the automation platform and **Docker Hub** as the container registry.
 
-The delivery flow is:
+The pipeline in `project-atmos-dev` is one workflow, `ci-delivery.yml`, with three stages. CI and delivery are separate blocks of the same run, so the image that is built is the image that is published.
+
+Runs on pushes and Pull Requests targeting `main` and `develop`:
+
+1. **Lint** (Ruff for the backend, oxlint for the frontend).
+2. **Tests** (pytest).
+3. **Delivery**, after lint and tests pass:
+   1. Build the Docker images.
+   2. Tag them: `<service>:<version>-<sha6>`.
+   3. Push them to Docker Hub.
+   4. Trigger the deployment pipeline in `project-atmos-k8s` with a `repository_dispatch` event (`deploy`) that carries the image tag. The workflow ends here.
+
+Steps 3.2-3.4 run only on a push to `develop`. On Pull Requests and on pushes to `main` the images are built but not published, and nothing is triggered.
 
 ```text
 Code
  ↓
-GitHub Actions
+Lint → Tests
  ↓
-Lint → Tests → Build (develop only)
+Build image → Tag → Push to Docker Hub   (develop only)
  ↓
-Docker Image
- ↓
-Docker Hub (dev tag)
- ↓
-Automatic DEV deployment
- ↓
-Validation
- ↓
-Manual approval
- ↓
-PROD promotion (same image, new tag)
+Trigger project-atmos-k8s pipeline
 ```
 
-Docker images use tags that include the environment, the application version, and the first 6 characters of the Git commit SHA:
+### Image tags
 
 ```text
-<service>:dev-v1.0.0-<sha6>
-<service>:prod-v1.0.0-<sha6>
+streetflow13/project-atmos-backend:v1.0.0-<sha6>
+streetflow13/project-atmos-frontend:v1.0.0-<sha6>
 ```
 
-An image is built once, on `develop`. A PROD release adds a `prod-*` tag to the image that already passed DEV. The promotion is a manual workflow run that requires approval of the GitHub Environment `production`. PROD images are never rebuilt.
+The tag contains the application version and the first 6 characters of the Git commit SHA. The version is set in `APP_VERSION` in `ci-delivery.yml`. Images are built and published only from `develop`.
 
-After a successful CI run on `develop`, the CD workflow deploys to DEV automatically. It sets the image tag in the Kustomize DEV overlay from `project-atmos-k8s`, applies it to Amazon EKS, and verifies the rollout. A failed rollout fails the workflow.
+### Deployment (out of scope of this repository)
 
-GitHub Actions authenticates to AWS with GitHub OIDC and short-lived credentials. No long-lived AWS keys are stored.
-
-Application CI is managed in `project-atmos-dev`. Kubernetes deployment is managed separately in `project-atmos-k8s`, while AWS infrastructure is managed through Terraform in `project-atmos-iac`.
+`project-atmos-dev` does not deploy anything and has no cloud credentials. The pipeline in `project-atmos-k8s` is triggered by the delivery workflow. It is responsible for pulling the image from Docker Hub, validating it, and deploying to the DEV namespace in Kubernetes. PROD deployment, approvals, and authentication to AWS belong to that pipeline and will be described in its own ADR once it exists.
 
 ## Why
 
 - **Project fit:** GitHub Actions integrates directly with the project's GitHub workflow.
-- **Simplicity:** No separately managed CI/CD platform is required.
-- **Reproducibility:** Versioned image tags allow deployments to reference specific application versions and commits.
-- **Same artifact in DEV and PROD:** Promoting a tag instead of rebuilding guarantees that PROD runs exactly what was validated in DEV.
-- **No stored cloud keys:** OIDC removes long-lived AWS credentials from GitHub.
-- **Repository separation:** Application, Kubernetes, and infrastructure responsibilities remain separated.
-- **Operational fit:** GitHub Actions, Docker Hub, and Kubernetes provide the required delivery path without unnecessary infrastructure.
+- **Simplicity:** One workflow, one run, one path: check, build, publish, notify. Deployment stays a separate concern.
+- **Same artifact:** The image is built once, after checks pass, and the same build is published. No second build.
+- **Reproducibility:** Version and commit in the tag identify exactly what is deployed.
+- **Repository separation:** The application repository has no knowledge of clusters, namespaces, or AWS. It only publishes an image and sends a signal.
+- **No stored cloud keys:** Without a deploy step, this repository needs no AWS credentials.
 
 ## Consequences
 
 - **Positive:** Application changes are automatically validated and packaged.
-- **Positive:** Docker images are versioned and stored in a dedicated registry.
-- **Positive:** DEV delivery is automated while PROD remains controlled.
-- **Positive:** Application, Kubernetes, and infrastructure workflows remain independently managed.
-- **Trade-off:** The delivery process depends on GitHub Actions, Docker Hub, and AWS.
-- **Trade-off:** Multiple repositories require coordination between application and deployment configuration.
-- **Trade-off:** The application version is set in `APP_VERSION` in both `ci.yml` and `cd.yml` and must be changed in both places.
+- **Positive:** Images are versioned and stored in a dedicated registry.
+- **Positive:** Application, Kubernetes, and infrastructure workflows are independently managed.
+- **Trade-off:** Until the pipeline in `project-atmos-k8s` exists, the trigger has no receiver and nothing is deployed.
+- **Trade-off:** There is no environment promotion in this repository. The same image tag is deployed everywhere, and the separation of DEV and PROD is the responsibility of the k8s pipeline.
+- **Trade-off:** The delivery process depends on GitHub Actions and Docker Hub.
+- **Trade-off:** Multiple repositories require coordination: the `repository_dispatch` payload (`image_tag`) is a contract between `project-atmos-dev` and `project-atmos-k8s`.
 - **Trade-off:** Docker Hub does not enforce tag immutability here. Tags are treated as immutable by convention.
-- **Trade-off:** PROD promotion currently only tags the image. Deployment to the PROD namespace requires the infrastructure work in `project-atmos-iac`.
+- **Trade-off:** `K8S_REPO_TOKEN` is a long-lived secret with write access to `project-atmos-k8s`.
